@@ -1,0 +1,88 @@
+diff -up mksh-39/var.c.nooctal mksh-39/var.c
+--- mksh-39/var.c.nooctal	2013-10-17 10:31:43.480802358 +0200
++++ mksh-39/var.c	2013-10-17 10:35:04.499422730 +0200
+@@ -434,10 +434,10 @@ setint(struct tbl *vq, mksh_ari_t n)
+ int
+ getint(struct tbl *vp, mksh_ari_t *nump, bool arith)
+ {
+-	char *s;
+ 	int c, base, neg;
++	mksh_uari_t num;
++	const char *s;
+ 	bool have_base = false;
+-	mksh_ari_t num;
+ 
+ 	if (vp->flag&SPECIAL)
+ 		getspec(vp);
+@@ -449,38 +449,43 @@ getint(struct tbl *vp, mksh_ari_t *nump,
+ 		return (vp->type);
+ 	}
+ 	s = vp->val.s + vp->type;
+-	if (s == NULL)	/* redundant given initial test */
+-		s = null;
+ 	base = 10;
+ 	num = 0;
+ 	neg = 0;
+-	if (arith && *s == '0' && *(s+1)) {
+-		s++;
+-		if (*s == 'x' || *s == 'X') {
+-			s++;
+-			base = 16;
+-		} else if (vp->flag & ZEROFIL) {
+-			while (*s == '0')
+-				s++;
+-		} else
+-			base = 8;
++	if (arith && s[0] == '0' && (s[1] | 0x20) == 'x') {
++		s += 2;
++		base = 16;
+ 		have_base = true;
+ 	}
+-	for (c = *s++; c ; c = *s++) {
++#ifdef MKSH_LEGACY_MODE
++	if (arith && s[0] == '0' && ksh_isdigit(s[1]) &&
++	    !(vp->flag & ZEROFIL)) {
++		/* interpret as octal (deprecated) */
++		base = 8;
++		have_base = true;
++	}
++#endif
++	while ((c = *s++)) {
+ 		if (c == '-') {
+ 			neg++;
+ 			continue;
+ 		} else if (c == '#') {
+-			base = (int)num;
+-			if (have_base || base < 1 || base > 36)
++			if (have_base || num < 1 || num > 36)
+ 				return (-1);
++			base = (int)num;
+ 			if (base == 1) {
+ 				unsigned int wc;
+ 
+ 				if (!UTFMODE)
+-					wc = *(unsigned char *)s;
++					wc = *(const unsigned char *)s;
+ 				else if (utf_mbtowc(&wc, s) == (size_t)-1)
+-					wc = 0xEF00 + *(unsigned char *)s;
++					/* OPTU-8 -> OPTU-16 */
++					/*
++					 * (with a twist: 1#\uEF80 converts
++					 * the same as 1#\x80 does, thus is
++					 * not round-tripping correctly XXX)
++					 */
++					wc = 0xEF00 + *(const unsigned char *)s;
+ 				*nump = (mksh_ari_t)wc;
+ 				return (1);
+ 			}
+@@ -499,9 +504,7 @@ getint(struct tbl *vp, mksh_ari_t *nump,
+ 			return (-1);
+ 		num = num * base + c;
+ 	}
+-	if (neg)
+-		num = -num;
+-	*nump = num;
++	*nump = neg ? -((mksh_ari_t)num) : (mksh_ari_t)num;
+ 	return (base);
+ }
+ 

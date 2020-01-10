@@ -3,7 +3,7 @@
 Summary:          MirBSD enhanced version of the Korn Shell
 Name:             mksh
 Version:          39
-Release:          7%{?dist}
+Release:          7%{?dist}.1
 #BSD (setmode.c), ISC (strlcpy.c), MirOS (the rest)
 License:          MirOS and ISC and BSD
 Group:            System Environment/Shells
@@ -20,6 +20,7 @@ Patch2:           mksh-39c-dblalias.patch
 
 # from upstream cvs, for mksh < "R39 2010/05/17", rhbz#618274
 Patch3:           mksh-39c-fixsusbst.patch
+Patch4: mksh-39-nooctal.patch
 
 #for usage of alternatives
 Conflicts:        ksh < 20100621-3
@@ -47,6 +48,7 @@ mv %{name}/* . && rm -rf %{name}
 %patch1 -p1 -b .fixsetx
 %patch2 -p1 -b .dblalias
 %patch3 -p1 -b .fixsubst
+%patch4 -p1 -b .nooctal
 
 %build
 CFLAGS="$RPM_OPT_FLAGS" sh Build.sh -r -combine
@@ -104,6 +106,9 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/skel/.mkshrc
 
 %changelog
+* Wed Oct 23 2013 Michal Hlavinka <mhlavink@redhat.com> - 39-7.1
+- do not treat numbers with 0 prefix as octal (#1022601)
+
 * Tue Jun 28 2011 Michal Hlavinka <mhlavink@redhat.com> - 39-7
 - mksh requires sed in rpm post-uninstall stage (#712355)
 
