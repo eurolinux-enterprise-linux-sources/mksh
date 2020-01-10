@@ -2,7 +2,7 @@
 Summary:          MirBSD enhanced version of the Korn Shell
 Name:             mksh
 Version:          46
-Release:          3%{?dist}
+Release:          5%{?dist}
 # BSD (setmode.c), ISC (strlcpy.c), MirOS (the rest)
 License:          MirOS and ISC and BSD
 Group:            System Environment/Shells
@@ -145,6 +145,12 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/lksh.1*
 
 %changelog
+* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 46-5
+- Mass rebuild 2014-01-24
+
+* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 46-4
+- Mass rebuild 2013-12-27
+
 * Fri May 24 2013 Michal Hlavinka <mhlavink@redhat.com> - 46-3
 - add alternatives switching with ksh
 
