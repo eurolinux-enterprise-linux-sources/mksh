@@ -1,0 +1,47 @@
+diff -up mksh-39c/check.t.fixsubst mksh-39c/check.t
+--- mksh-39c/check.t.fixsubst	2011-01-04 15:55:30.493395051 +0100
++++ mksh-39c/check.t	2011-01-04 15:57:48.681133798 +0100
+@@ -4452,6 +4452,22 @@ expected-stderr-pattern:
+ 	/bad substitution/
+ expected-exit: 1
+ ---
++name: xxx-variable-syntax-2
++stdin:
++	set 0
++	echo ${*:0}
++expected-stderr-pattern:
++	/bad substitution/
++expected-exit: 1
++---
++name: xxx-variable-syntax-3
++stdin:
++	set -A foo 0
++	echo ${foo[*]:0}
++expected-stderr-pattern:
++	/bad substitution/
++expected-exit: 1
++---
+ name: xxx-substitution-eval-order
+ description:
+ 	Check order of evaluation of expressions
+diff -up mksh-39c/eval.c.fixsubst mksh-39c/eval.c
+--- mksh-39c/eval.c.fixsubst	2010-02-25 21:18:39.000000000 +0100
++++ mksh-39c/eval.c	2011-01-04 15:55:30.500394934 +0100
+@@ -1016,6 +1016,8 @@ varsub(Expand *xp, const char *sp, const
+ 		case '=':	/* can't assign to a vector */
+ 		case '%':	/* can't trim a vector (yet) */
+ 		case '#':
++		case '0':
++		case '/':
+ 			return (-1);
+ 		}
+ 		if (e->loc->argc == 0) {
+@@ -1039,6 +1041,8 @@ varsub(Expand *xp, const char *sp, const
+ 			case '%':	/* can't trim a vector (yet) */
+ 			case '#':
+ 			case '?':
++			case '0':
++			case '/':
+ 				return (-1);
+ 			}
+ 			XPinit(wv, 32);

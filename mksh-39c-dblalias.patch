@@ -1,0 +1,31 @@
+--- a/check.t	2010/07/19 22:41:01	1.383
++++ b/check.t	2010/07/21 11:31:13	1.384
+@@ -184,6 +184,17 @@ stdin:
+ expected-stdout:
+ 	tf
+ 	tf
++---
++name: alias-10
++description:
++	Check that recursion is detected/avoided in aliases.
++	Regression, introduced during an old bugfix.
++stdin:
++	alias foo='print hello '
++	alias bar='foo world'
++	echo $(bar)
++expected-stdout:
++	hello world
+ ---
+ name: arith-lazy-1
+ description:
+--- a/lex.c	2010/07/17 22:09:36	1.116
++++ b/lex.c	2010/07/21 11:31:15	1.117
+@@ -1110,7 +1110,7 @@ yylex(int cf)
+ 			else {
+ 				Source *s = source;
+ 
+-				while (s->flags & SF_HASALIAS)
++				while (s && (s->flags & SF_HASALIAS))
+ 					if (s->u.tblp == p)
+ 						return (LWORD);
+ 					else
