@@ -1,0 +1,184 @@
+diff -up mksh-39/exec.c.fixtrace mksh-39/exec.c
+--- mksh-39/exec.c.fixtrace	2009-06-11 14:42:41.000000000 +0200
++++ mksh-39/exec.c	2014-03-04 21:19:07.528124226 +0100
+@@ -84,14 +84,6 @@ execute(struct op *volatile t,
+ 			/* Allow option parsing (bizarre, but POSIX) */
+ 			timex_hook(t, &up);
+ 		ap = (const char **)up;
+-		if (Flag(FXTRACE) && ap[0]) {
+-			shf_fprintf(shl_out, "%s",
+-				substitute(str_val(global("PS4")), 0));
+-			for (i = 0; ap[i]; i++)
+-				shf_fprintf(shl_out, "%s%c", ap[i],
+-				    ap[i + 1] ? ' ' : '\n');
+-			shf_flush(shl_out);
+-		}
+ 		if (ap[0])
+ 			tp = findcom(ap[0], FC_BI|FC_FUNC);
+ 	}
+@@ -503,22 +495,36 @@ comexec(struct op *t, struct tbl *volati
+ 	}
+ 	if (Flag(FEXPORT))
+ 		type_flags |= EXPORT;
++	if (Flag(FXTRACE))
++		change_xtrace(2, false);
+ 	for (i = 0; t->vars[i]; i++) {
+ 		cp = evalstr(t->vars[i], DOASNTILDE);
+ 		if (Flag(FXTRACE)) {
+-			if (i == 0)
+-				shf_fprintf(shl_out, "%s",
+-					substitute(str_val(global("PS4")), 0));
+-			shf_fprintf(shl_out, "%s%c", cp,
+-			    t->vars[i + 1] ? ' ' : '\n');
++			shf_fprintf(shl_out, "%s", cp);
+ 			if (!t->vars[i + 1])
+ 				shf_flush(shl_out);
++			else
++				shf_putc(' ',shl_out);
+ 		}
+ 		typeset(cp, type_flags, 0, 0, 0);
+ 		if (bourne_function_call && !(type_flags & EXPORT))
+ 			typeset(cp, LOCAL|LOCAL_COPY|EXPORT, 0, 0, 0);
+ 	}
+ 
++	if (Flag(FXTRACE)) {
++		change_xtrace(2, false);
++		if (ap[rv = 0]) {
++ xtrace_ap_loop:
++ 			shf_fprintf(shl_out, "%s", ap[rv]);
++			if (ap[++rv]) {
++				shf_putc(' ', shl_out);
++				goto xtrace_ap_loop;
++			}
++			shf_flush(shl_out);
++		}
++		change_xtrace(1, false);
++	}
++
+ 	if ((cp = *ap) == NULL) {
+ 		rv = subst_exstat;
+ 		goto Leave;
+@@ -599,9 +605,8 @@ comexec(struct op *t, struct tbl *volati
+ 			getopts_reset(1);
+ 		}
+ 
+-		old_xflag = Flag(FXTRACE);
+-		Flag(FXTRACE) = tp->flag & TRACE ? 1 : 0;
+-
++		old_xflag = Flag(FXTRACE) ? 1 : 0;
++		change_xtrace(((tp->flag & TRACE) ? 1 : 0), false);
+ 		old_inuse = tp->flag & FINUSE;
+ 		tp->flag |= FINUSE;
+ 
+@@ -613,7 +618,7 @@ comexec(struct op *t, struct tbl *volati
+ 			i = LRETURN;
+ 		}
+ 		kshname = old_kshname;
+-		Flag(FXTRACE) = old_xflag;
++		change_xtrace(old_xflag, false);
+ 		tp->flag = (tp->flag & ~FINUSE) | old_inuse;
+ 		/* Were we deleted while executing? If so, free the execution
+ 		 * tree. todo: Unfortunately, the table entry is never re-used
+@@ -1110,11 +1115,12 @@ iosetup(struct ioword *iop, struct tbl *
+ 	iotmp.name = (iotype == IOHERE) ? NULL : cp;
+ 	iotmp.flag |= IONAMEXP;
+ 
+-	if (Flag(FXTRACE))
+-		shellf("%s%s\n",
+-		    substitute(str_val(global("PS4")), 0),
++	if (Flag(FXTRACE)) {
++		change_xtrace(2, false);
++		shellf("%s",
+ 		    snptreef(NULL, 32, "%R", &iotmp));
+-
++		change_xtrace(1, false);
++	}
+ 	switch (iotype) {
+ 	case IOREAD:
+ 		flags = O_RDONLY;
+diff -up mksh-39/misc.c.fixtrace mksh-39/misc.c
+--- mksh-39/misc.c.fixtrace	2009-08-01 22:32:11.000000000 +0200
++++ mksh-39/misc.c	2014-03-04 20:16:32.409301793 +0100
+@@ -240,10 +240,15 @@ getoptions(void)
+ void
+ change_flag(enum sh_flag f,
+     int what,		/* flag to change */
+-    char newval)	/* what is changing the flag (command line vs set) */
++    char newset)	/* what is changing the flag (command line vs set) */
+ {
+-	char oldval;
++	unsigned char oldval;
++	unsigned char newval = (newset ? 1 : 0);
+ 
++	if (f == FXTRACE) {
++		change_xtrace(newval, true);
++		return;
++	}
+ 	oldval = Flag(f);
+ 	Flag(f) = newval ? 1 : 0;	/* needed for tristates */
+ #ifndef MKSH_UNEMPLOYED
+@@ -288,7 +293,39 @@ change_flag(enum sh_flag f,
+ 	}
+ }
+ 
+-/* Parse command line & set command arguments. Returns the index of
++void
++change_xtrace(unsigned char newval, bool dosnapshot)
++{
++	if (!dosnapshot && newval == Flag(FXTRACE))
++		return;
++
++	if (Flag(FXTRACE) == 2) {
++		shf_putc('\n', shl_out);
++		Flag(FXTRACE) = 1;
++		shf_flush(shl_out);
++	}
++
++	if (!dosnapshot && Flag(FXTRACE) == 1)
++		switch (newval) {
++		case 1:
++			return;
++		case 2:
++			goto changed_xtrace;
++		}
++
++	shf_flush(shl_out);
++	/*if (shl_xtrace->fd != 2)
++		close(shl_xtrace->fd);
++	if (!newval || (shl_xtrace->fd = savefd(2)) == -1)
++		shl_xtrace->fd = 2;*/
++
++ changed_xtrace:
++	if ((Flag(FXTRACE) = newval) == 2)
++		shf_puts(substitute(str_val(global("PS4")), 0), shl_out);
++}
++
++/*
++ * Parse command line and set command arguments. Returns the index of
+  * non-option arguments, -1 if there is an error.
+  */
+ int
+@@ -427,8 +464,10 @@ parse_args(const char **argv,
+ 	    (argv[go.optind][0] == '-' || argv[go.optind][0] == '+') &&
+ 	    argv[go.optind][1] == '\0') {
+ 		/* lone - clears -v and -x flags */
+-		if (argv[go.optind][0] == '-')
+-			Flag(FVERBOSE) = Flag(FXTRACE) = 0;
++		if (argv[go.optind][0] == '-') {
++			Flag(FVERBOSE) = 0;
++			change_xtrace(0, false);
++		}
+ 		/* set skips lone - or + option */
+ 		go.optind++;
+ 	}
+diff -up mksh-39/sh.h.fixtrace mksh-39/sh.h
+--- mksh-39/sh.h.fixtrace	2009-08-01 22:33:09.000000000 +0200
++++ mksh-39/sh.h	2014-03-04 20:16:32.410301773 +0100
+@@ -1552,6 +1552,7 @@ void initctypes(void);
+ size_t option(const char *);
+ char *getoptions(void);
+ void change_flag(enum sh_flag, int, char);
++void change_xtrace(unsigned char, bool);
+ int parse_args(const char **, int, int *);
+ int getn(const char *, int *);
+ int bi_getn(const char *, int *);

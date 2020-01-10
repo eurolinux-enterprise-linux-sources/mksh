@@ -3,7 +3,7 @@
 Summary:          MirBSD enhanced version of the Korn Shell
 Name:             mksh
 Version:          39
-Release:          9%{?dist}
+Release:          10%{?dist}
 #BSD (setmode.c), ISC (strlcpy.c), MirOS (the rest)
 License:          MirOS and ISC and BSD
 Group:            System Environment/Shells
@@ -22,6 +22,7 @@ Patch2:           mksh-39c-dblalias.patch
 Patch3:           mksh-39c-fixsusbst.patch
 Patch4: mksh-39-nooctal.patch
 Patch5: mksh-39-tabfix.patch
+Patch6: mksh-r39-fixtrace.patch
 
 #for usage of alternatives
 Conflicts:        ksh < 20100621-3
@@ -51,6 +52,7 @@ mv %{name}/* . && rm -rf %{name}
 %patch3 -p1 -b .fixsubst
 %patch4 -p1 -b .nooctal
 %patch5 -p1 -b .tabfix
+%patch6 -p1 -b .fixtrace
 
 %build
 CFLAGS="$RPM_OPT_FLAGS" sh Build.sh -r -combine
@@ -108,6 +110,9 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/skel/.mkshrc
 
 %changelog
+* Thu Oct 20 2016 Michal Hlavinka <mhlavink@redhat.com> - 39-10
+- fix infinite recursion problem in PS4 (#1072086)
+
 * Wed May 07 2014 Michal Hlavinka <mhlavink@redhat.com> - 39-9
 - tab completion did not work correctly with files containing multibyte 
   characters in name (#771198)
