@@ -3,7 +3,7 @@
 Summary:          MirBSD enhanced version of the Korn Shell
 Name:             mksh
 Version:          39
-Release:          10%{?dist}
+Release:          11%{?dist}
 #BSD (setmode.c), ISC (strlcpy.c), MirOS (the rest)
 License:          MirOS and ISC and BSD
 Group:            System Environment/Shells
@@ -110,6 +110,9 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/skel/.mkshrc
 
 %changelog
+* Mon Feb 05 2018 Michal Hlavinka <mhlavink@redhat.com> - 39-11
+- fix incorrect xtrace redirection (#1448950)
+
 * Thu Oct 20 2016 Michal Hlavinka <mhlavink@redhat.com> - 39-10
 - fix infinite recursion problem in PS4 (#1072086)
 

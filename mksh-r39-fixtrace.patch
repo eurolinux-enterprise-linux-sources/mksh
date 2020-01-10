@@ -1,6 +1,6 @@
 diff -up mksh-39/exec.c.fixtrace mksh-39/exec.c
---- mksh-39/exec.c.fixtrace	2009-06-11 14:42:41.000000000 +0200
-+++ mksh-39/exec.c	2014-03-04 21:19:07.528124226 +0100
+--- mksh-39/exec.c.fixtrace	2018-02-05 15:22:45.172136519 +0100
++++ mksh-39/exec.c	2018-02-05 15:22:45.174136536 +0100
 @@ -84,14 +84,6 @@ execute(struct op *volatile t,
  			/* Allow option parsing (bizarre, but POSIX) */
  			timex_hook(t, &up);
@@ -97,8 +97,8 @@ diff -up mksh-39/exec.c.fixtrace mksh-39/exec.c
  	case IOREAD:
  		flags = O_RDONLY;
 diff -up mksh-39/misc.c.fixtrace mksh-39/misc.c
---- mksh-39/misc.c.fixtrace	2009-08-01 22:32:11.000000000 +0200
-+++ mksh-39/misc.c	2014-03-04 20:16:32.409301793 +0100
+--- mksh-39/misc.c.fixtrace	2018-02-05 15:22:45.172136519 +0100
++++ mksh-39/misc.c	2018-02-05 15:28:58.942286367 +0100
 @@ -240,10 +240,15 @@ getoptions(void)
  void
  change_flag(enum sh_flag f,
@@ -117,7 +117,7 @@ diff -up mksh-39/misc.c.fixtrace mksh-39/misc.c
  	oldval = Flag(f);
  	Flag(f) = newval ? 1 : 0;	/* needed for tristates */
  #ifndef MKSH_UNEMPLOYED
-@@ -288,7 +293,39 @@ change_flag(enum sh_flag f,
+@@ -288,7 +293,49 @@ change_flag(enum sh_flag f,
  	}
  }
  
@@ -125,6 +125,11 @@ diff -up mksh-39/misc.c.fixtrace mksh-39/misc.c
 +void
 +change_xtrace(unsigned char newval, bool dosnapshot)
 +{
++	static bool in_xtrace = false;
++
++	if (in_xtrace)
++		return;
++
 +	if (!dosnapshot && newval == Flag(FXTRACE))
 +		return;
 +
@@ -143,14 +148,19 @@ diff -up mksh-39/misc.c.fixtrace mksh-39/misc.c
 +		}
 +
 +	shf_flush(shl_out);
-+	/*if (shl_xtrace->fd != 2)
-+		close(shl_xtrace->fd);
-+	if (!newval || (shl_xtrace->fd = savefd(2)) == -1)
-+		shl_xtrace->fd = 2;*/
++	if (shl_out->fd != 2)
++		close(shl_out->fd);
++	if (!newval || (shl_out->fd = savefd(2)) == -1)
++		shl_out->fd = 2;
 +
 + changed_xtrace:
-+	if ((Flag(FXTRACE) = newval) == 2)
++	if ((Flag(FXTRACE) = newval) == 2) {
++		in_xtrace = true;
++		Flag(FXTRACE) = 0;
 +		shf_puts(substitute(str_val(global("PS4")), 0), shl_out);
++		Flag(FXTRACE) = 2;
++		in_xtrace = false;
++	}
 +}
 +
 +/*
@@ -158,7 +168,7 @@ diff -up mksh-39/misc.c.fixtrace mksh-39/misc.c
   * non-option arguments, -1 if there is an error.
   */
  int
-@@ -427,8 +464,10 @@ parse_args(const char **argv,
+@@ -427,8 +474,10 @@ parse_args(const char **argv,
  	    (argv[go.optind][0] == '-' || argv[go.optind][0] == '+') &&
  	    argv[go.optind][1] == '\0') {
  		/* lone - clears -v and -x flags */
@@ -172,8 +182,8 @@ diff -up mksh-39/misc.c.fixtrace mksh-39/misc.c
  		go.optind++;
  	}
 diff -up mksh-39/sh.h.fixtrace mksh-39/sh.h
---- mksh-39/sh.h.fixtrace	2009-08-01 22:33:09.000000000 +0200
-+++ mksh-39/sh.h	2014-03-04 20:16:32.410301773 +0100
+--- mksh-39/sh.h.fixtrace	2018-02-05 15:22:45.173136528 +0100
++++ mksh-39/sh.h	2018-02-05 15:22:45.174136536 +0100
 @@ -1552,6 +1552,7 @@ void initctypes(void);
  size_t option(const char *);
  char *getoptions(void);
