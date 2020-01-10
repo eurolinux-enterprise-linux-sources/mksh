@@ -1,0 +1,20 @@
+diff -up mksh/jobs.c.waitfail mksh/jobs.c
+--- mksh/jobs.c.waitfail	2017-08-09 10:06:36.500591694 +0200
++++ mksh/jobs.c	2017-08-09 10:08:34.325534710 +0200
+@@ -1009,8 +1009,14 @@ j_notify(void)
+ 	}
+ 	for (j = job_list; j; j = tmp) {
+ 		tmp = j->next;
+-		if (j->flags & JF_REMOVE)
+-			remove_job(j, "notify");
++		if (j->flags & JF_REMOVE) {
++			if (j == async_job || (j->flags & JF_KNOWN)) {
++				j->flags = (j->flags & ~JF_REMOVE) | JF_ZOMBIE;
++				j->job = -1;
++				nzombie++;
++			} else
++				remove_job(j, "notify");
++		}
+ 	}
+ 	shf_flush(shl_out);
+ #ifndef MKSH_NOPROSPECTOFWORK

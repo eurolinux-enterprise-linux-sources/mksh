@@ -1,0 +1,18 @@
+diff -up mksh/exec.c.selectopts mksh/exec.c
+--- mksh/exec.c.selectopts	2017-09-14 14:15:27.335249169 +0200
++++ mksh/exec.c	2017-09-14 14:16:30.120467641 +0200
+@@ -1560,11 +1560,9 @@ do_selectargs(const char **ap, bool prin
+ 		shellf("%s", str_val(global("PS3")));
+ 		if (call_builtin(findcom("read", FC_BI), read_args, Tselect))
+ 			return (NULL);
+-		s = str_val(global("REPLY"));
+-		if (*s) {
+-			getn(s, &i);
+-			return ((i >= 1 && i <= argct) ? ap[i - 1] : null);
+-		}
++		if (*(s = str_val(global("REPLY"))))
++			return ((getn(s, &i) && i >= 1 && i <= argct) ?
++			    ap[i - 1] : null);
+ 		print_menu = true;
+ 	}
+ }

@@ -2,7 +2,7 @@
 Summary:          MirBSD enhanced version of the Korn Shell
 Name:             mksh
 Version:          46
-Release:          5%{?dist}
+Release:          8%{?dist}
 # BSD (setmode.c), ISC (strlcpy.c), MirOS (the rest)
 License:          MirOS and ISC and BSD
 Group:            System Environment/Shells
@@ -11,6 +11,12 @@ Source0:          http://www.mirbsd.org/MirOS/dist/mir/%{name}/%{name}-R%{versio
 Source1:          dot-mkshrc
 Source2:          rtchecks.expected
 Patch0:           mksh-46-lksh.patch
+# from upstream, for mksh <= 55, rhbz#1243788
+Patch1:           mksh-55-waitfail.patch
+# from upstream, for mksh <= 50f, rhbz#1491312
+Patch2:           mksh-46-selectopts.patch
+# from upstream, for mksh < 47, rhbz#1413023
+Patch3:           mksh-46-fixtrace.patch
 Requires:         chkconfig
 Requires(post):   grep, chkconfig
 Requires(postun): sed
@@ -29,6 +35,9 @@ bourne shell replacement, pdksh successor and an alternative to the C shell.
 %prep
 %setup -q -n %{name}
 %patch0 -p0 -b .lksh
+%patch1 -p1 -b .waitfail
+%patch2 -p1 -b .selectopts
+%patch3 -p1 -b .fixtrace
 
 # we'll need this later
 cat >rtchecks <<'EOF'
@@ -145,6 +154,15 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/lksh.1*
 
 %changelog
+* Tue Oct 10 2017 Michal Hlavinka <mhlavink@redhat.com> - 46-8
+- fix infinite recursion in PS4 (#1413023)
+
+* Thu Sep 14 2017 Michal Hlavinka <mhlavink@redhat.com> - 46-7
+- fix select setting wrong value on incorrect input (#1491312)
+
+* Wed Aug 09 2017 Michal Hlavinka <mhlavink@redhat.com> - 46-6
+- do not forget exit codes of co-processes in interactive mode (#1243788)
+
 * Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 46-5
 - Mass rebuild 2014-01-24
 
