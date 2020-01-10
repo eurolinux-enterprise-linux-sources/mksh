@@ -1,0 +1,89 @@
+diff -up mksh-39/edit.c.tabfix mksh-39/edit.c
+--- mksh-39/edit.c.tabfix	2009-08-01 22:33:07.000000000 +0200
++++ mksh-39/edit.c	2014-05-07 13:51:33.468061203 +0200
+@@ -571,6 +571,10 @@ x_longest_prefix(int nwords, char * cons
+ 				prefix_len = j;
+ 				break;
+ 			}
++	/* false for nwords==1 as 0 = words[0][prefix_len] then */
++	if (UTFMODE && prefix_len && (words[0][prefix_len] & 0xC0) == 0x80)
++		while (prefix_len && (words[0][prefix_len] & 0xC0) != 0xC0)
++			--prefix_len;
+ 	return (prefix_len);
+ }
+ 
+diff -up mksh-39/exec.c.tabfix mksh-39/exec.c
+--- mksh-39/exec.c.tabfix	2009-06-11 14:42:41.000000000 +0200
++++ mksh-39/exec.c	2014-05-07 13:51:33.468061203 +0200
+@@ -1408,15 +1408,21 @@ plain_fmt_entry(const void *arg, int i,
+ int
+ pr_list(char *const *ap)
+ {
+-	char *const *pp;
+-	int nwidth, i, n;
++	size_t acols = 0, aocts = 0, i;
++	int n;
++	char * const *pp;
+ 
+-	for (n = 0, nwidth = 0, pp = ap; *pp; n++, pp++) {
++	for (n = 0, pp = ap; *pp; n++, pp++) {
++		i = strlen(*pp);
++		if (i > aocts)
++			aocts = i;
+ 		i = utf_mbswidth(*pp);
+-		nwidth = (i > nwidth) ? i : nwidth;
++		if (i > acols)
++			acols = i;
+ 	}
+-	print_columns(shl_out, n, plain_fmt_entry, (const void *)ap,
+-	    nwidth + 1, 0);
++
++	print_columns_new(shl_out, n, plain_fmt_entry, (const void *)ap,
++	    acols + 1, 0, aocts);
+ 
+ 	return (n);
+ }
+diff -up mksh-39/misc.c.tabfix mksh-39/misc.c
+--- mksh-39/misc.c.tabfix	2009-08-01 22:32:11.000000000 +0200
++++ mksh-39/misc.c	2014-05-07 15:38:48.847369999 +0200
+@@ -967,7 +967,17 @@ print_columns(struct shf *shf, int n,
+     char *(*func) (const void *, int, char *, int),
+     const void *arg, int max_width, int prefcol)
+ {
+-	char *str = alloc(max_width + 1, ATEMP);
++  print_columns_new(shf, n, func, arg, max_width, prefcol, 0);
++}
++
++void
++print_columns_new(struct shf *shf, int n,
++    char *(*func) (const void *, int, char *, int),
++    const void *arg, int max_width, int prefcol, int max_oct)
++{
++	if(max_oct<max_width) max_oct=max_width+1;
++	else max_oct++;
++	char *str = alloc(max_oct, ATEMP);
+ 	int i, r, c, rows, cols, nspace;
+ 
+ 	/* ensure x_cols is valid first */
+@@ -1005,7 +1015,7 @@ print_columns(struct shf *shf, int n,
+ 			if (i < n) {
+ 				shf_fprintf(shf, "%-*s",
+ 				    max_width,
+-				    (*func)(arg, i, str, max_width + 1));
++				    (*func)(arg, i, str, max_oct));
+ 				if (c + 1 < cols)
+ 					shf_fprintf(shf, "%*s", nspace, null);
+ 			}
+diff -up mksh-39/sh.h.tabfix mksh-39/sh.h
+--- mksh-39/sh.h.tabfix	2009-08-01 22:33:09.000000000 +0200
++++ mksh-39/sh.h	2014-05-07 13:51:33.469061211 +0200
+@@ -1565,6 +1565,9 @@ void print_value_quoted(const char *);
+ void print_columns(struct shf *, int,
+     char *(*)(const void *, int, char *, int),
+     const void *, int, int prefcol);
++void print_columns_new(struct shf *, int,
++    char *(*)(const void *, int, char *, int),
++    const void *, int, int prefcol, int);
+ void strip_nuls(char *, int);
+ int blocking_read(int, char *, int)
+     __bound_att__((bounded (buffer, 2, 3)));
